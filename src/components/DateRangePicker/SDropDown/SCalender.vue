@@ -4,13 +4,27 @@
             <table class="calender" v-for="calenderIndex in calenders" :key="calenderIndex">
                 <thead class="header">
                     <tr class="header--top">
-                        <th class="previous">
-                            <font-awesome-icon class="s-icon" icon="chevron-left"/>
+                        <th class="previous" 
+                            @click="shiftOnePreviousMonth()"
+                            v-if="isFirstCalender(calenderIndex)"
+                        >
+                            <font-awesome-icon 
+                                class="s-icon" 
+                                icon="chevron-left"
+                            />
                         </th>
+                        <th v-else></th>
                         <th colspan="5" class="month">{{getCalenderMonth(calenderIndex - 1)}}</th>
-                        <th class="next">
-                            <font-awesome-icon class="s-icon" icon="chevron-right"/>
+                        <th class="next" 
+                            @click="shiftOneNextMonth()"
+                            v-if="isLastCalender(calenderIndex)"
+                        >
+                            <font-awesome-icon 
+                                class="s-icon" 
+                                icon="chevron-right"
+                            />
                         </th>
+                        <th v-else></th>
                     </tr>
                     <tr class="header--bottom">
                         <th v-for="(val, index) in weekNameInShort" :key="index">
@@ -23,15 +37,7 @@
                         <td v-for="(date, rIndex) in dates" :key="rIndex"
                             @click="selectDate(date.value)"
                             @mouseover="temporarySelectDate(date.value)"
-                            :class="{currentMonth: date.isCurrentMonth, 
-                                today: date.isToday, // Represent today
-                                currentRange: date.isCurrentRange, // Represent current date range
-                                previousRange: date.isPreviousRange, // Represent previous date range
-                                startDate: date.isStartDate, // Start of any specific date range
-                                endDate: date.isEndDate, // End of any specific range
-                                inRange: date.inRange, // To Show Date in hover state
-                                isDisabled: date.isDisabled //To Disable Date Selection
-                                }"
+                            :class="getClasses(date.value, date.month)"
                         >
                             {{date.label}}
                         </td>
@@ -52,22 +58,43 @@ export default {
             currentRange: [1539734400000, 1540339200000],
             previousRange: [1538870400000, 1539302400000],
             isCurrentRangeSelecting: false,
-            isPreviousRangeSelecting: false
+            isPreviousRangeSelecting: false,
+            monthShift : 0,
+            hoverDate: null,
+            isCurrentRangeSelectedPreviously: false
+        }
+    },
+    computed: {
+        isSelecting () {
+            return this.isCurrentRangeSelecting || this.isPreviousRangeSelecting
         }
     },
     methods: {
+        isFirstCalender (index) {
+            return index == 1
+        },
+        isLastCalender (index) {
+            return index == this.calenders
+        },
         getCalenderMonth(calenderIndex) {
             const date = new Date(this.visibleDate);
-            if (calenderIndex) {
-                date.setMonth(date.getMonth() + calenderIndex);
+
+            date.setMonth(date.getMonth() - this.calenders + calenderIndex + 1);
+            if (this.monthShift) {
+                date.setMonth(date.getMonth() + this.monthShift);
             }
             return date.toLocaleDateString('en-US', {'year': 'numeric', month: 'short'})
         },
         getCalenderDates(calenderIndex) {
+            // console.log('called');
+            
             const today = new Date();
             const date = new Date(this.visibleDate);
-            if (calenderIndex) {
-                date.setMonth(date.getMonth() + calenderIndex);
+
+            date.setMonth(date.getMonth() - this.calenders + calenderIndex + 1);
+
+            if (this.monthShift) {
+                date.setMonth(date.getMonth() + this.monthShift);
             }
 
             const firstDay = new Date(date.getFullYear() + '-' + (date.getMonth()+1) + '-01');
@@ -89,15 +116,19 @@ export default {
                     let data = {
                         label: startDay.getDate(),
                         value: startDay.toLocaleDateString('sv-SE'),
-                        isCurrentMonth: startDay.getMonth() === date.getMonth(),
-                        isToday: startDay.toLocaleDateString() === today.toLocaleDateString()
+                        month: date.getMonth(),
+                        // isToday: startDay.toLocaleDateString() === today.toLocaleDateString(),
+                        // isHidden: startDay.getMonth() !== date.getMonth(),
+                        // isDisabled: startDay > today
                     }
-
+                    /*
                     if (this.currentRange.length >= 1) {
                         const d1 = new Date(this.currentRange[0])
                         let d2 = null
                         if (this.currentRange.length === 2) {
                             d2 = new Date(this.currentRange[1])
+                        } else if (this.currentRange.length === 1 && this.isCurrentRangeSelecting) {
+                            data['inCurrentRange'] = this.isInRange(this.currentRange[0], this.hoverDate, startDay.getTime())
                         }
                         if (d1 === d2 && d1.toLocaleDateString() === startDay.toLocaleDateString()) {
                             data['isStartDate'] = true
@@ -114,12 +145,15 @@ export default {
                                 data['isCurrentRange'] = true
                             }
                         }
+
                     } 
                     if (this.previousRange.length >= 1) {
                         const d1 = new Date(this.previousRange[0])
                         let d2 = null
                         if (this.previousRange.length === 2) {
                             d2 = new Date(this.previousRange[1])
+                        } else if (this.previousRange.length === 1 && this.isPreviousRangeSelecting) {
+                            data['inPreviousRange'] = this.isInRange(this.previousRange[0], this.hoverDate, startDay.getTime())
                         }
                         if (d1 === d2 && d1.toLocaleDateString() === startDay.toLocaleDateString()) {
                             data['isStartDate'] = true
@@ -137,7 +171,7 @@ export default {
                             }
                         }
                     }
-
+                    */
                     row.push(data)
                     startDay.setTime(Date.parse(firstDay.toLocaleDateString('sv-SE')) + (1*24*3600*1000));
                 }
@@ -146,11 +180,189 @@ export default {
 
             return result;
         },
+        shiftOnePreviousMonth () {
+            this.monthShift += -1
+        },
+        shiftOneNextMonth () {
+            this.monthShift += 1
+        },
         selectDate(date) {
+            let selectedDate = this.getUTCDate(date)
+            this.manageSelection()
+            if (this.isOutofRange(selectedDate))
+                return
+            // this.log()
+            if (this.isCurrentRangeSelecting) {
+                if (!this.currentRange || this.currentRange.length >= 2) {
+                    this.currentRange = []
+                }
+                this.currentRange.push(selectedDate)
+                if (this.currentRange.length === 2) {
+                    this.hoverDate = null
+                    this.isCurrentRangeSelecting = false
+                }
+            } else if (this.isPreviousRangeSelecting) {
+                if (!this.previousRange || this.previousRange.length >= 2) {
+                    this.previousRange = []
+                }
+                this.previousRange.push(selectedDate)
+                if (this.previousRange.length === 2) {
+                    this.hoverDate = null
+                    this.isPreviousRangeSelecting = false
+                }
+            }
+        },
+        isOutofRange (selectedDate) {
+            let today = new Date().getTime()
 
+            if (selectedDate > today)
+                return true
+            if (this.isCurrentRangeSelecting){
+                if (this.currentRange.length === 1 && selectedDate < this.currentRange[0]) {
+                    return true
+                } 
+                if (this.previousRange.length === 2 && selectedDate <= this.previousRange[1]) {
+                    return true
+                }
+            }
+
+            if (this.isPreviousRangeSelecting){
+                if (this.previousRange.length === 1 && selectedDate < this.previousRange[0]) {
+                    return true
+                } 
+                if (this.currentRange.length === 2 && selectedDate >= this.currentRange[0]) {
+                    return true
+                }
+            }
+            return false
+        },
+        manageSelection () {
+            /**
+             * Here we're checking the state of datepicker.
+             * If Date picker is not in selection mode, than on click event we'll start selection mode.
+             * Selection mode will choose current or previous date selection based on which category user already selected.
+             * For initiial, we'll set current selection mode on and keeping a state that current selection mode is choosen.
+             * Later if current select mode was chosen before we'll choose previsous selection mode.
+             */
+            if (!this.isSelecting) {
+                this.isCurrentRangeSelecting = !this.isCurrentRangeSelectedPreviously
+                this.isPreviousRangeSelecting = this.isCurrentRangeSelectedPreviously
+                this.isCurrentRangeSelectedPreviously = !this.isCurrentRangeSelectedPreviously
+            }
+        },
+        resetSelection () {
+            this.hoverDate = null
+            this.isCurrentRangeSelecting = false
+            this.isCurrentRangeSelectedPreviously = false
+            this.isPreviousRangeSelecting = false
+            this.currentRange = [],
+            this.previousRange = []
         },
         temporarySelectDate(date) {
+            if (this.isSelecting) {
+                this.hoverDate = new Date(date).getTime()
+            }
+        },
+        isInRange (start, end, date) {
+            return start < date && date < end
+        },
+        getUTCDate(date) {
+            let selectedDate = new Date(date)
+            selectedDate = selectedDate.getTime() + selectedDate.getTimezoneOffset()
+            return selectedDate
+        },
+        getClasses (date, month) {
 
+            // :class="{currentMonth: date.isCurrentMonth, 
+            // today: date.isToday, // Represent today
+            // currentRange: date.isCurrentRange, // Represent current date range
+            // previousRange: date.isPreviousRange, // Represent previous date range
+            // startDate: date.isStartDate, // Start of any specific date range
+            // endDate: date.isEndDate, // End of any specific range
+            // inCurrentRange: date.inCurrentRange, // To Show Date in hover state
+            // inPreviousRange: date.inPreviousRange,
+            // isDisabled: date.isDisabled, //To Disable Date Selection
+            // isHidden: date.isHidden
+            // }"
+
+            let today = new Date()
+            let startDay = new Date(date)
+
+            let data = {}
+
+            if (this.currentRange.length >= 1) {
+                const d1 = new Date(this.currentRange[0])
+                let d2 = null
+                if (this.currentRange.length === 2) {
+                    d2 = new Date(this.currentRange[1])
+                } else if (this.currentRange.length === 1 && this.isCurrentRangeSelecting) {
+                    data['inCurrentRange'] = this.isInRange(this.currentRange[0], this.hoverDate, startDay.getTime())
+                }
+                if (d1 === d2 && d1.toLocaleDateString() === startDay.toLocaleDateString()) {
+                    data['isStartDate'] = true
+                    data['isEndDate'] = true
+                    data['isCurrentRange'] = true
+                } else if (d1.toLocaleDateString() === startDay.toLocaleDateString()) {
+                    data['isStartDate'] = true
+                    data['isCurrentRange'] = true
+                } else if (d2) {
+                    if (d2.toLocaleDateString() === startDay.toLocaleDateString()) {
+                        data['isEndDate'] = true
+                        data['isCurrentRange'] = true
+                    } else if (d1.getTime() <= startDay.getTime() && d2.getTime() >= startDay.getTime()) {
+                        data['isCurrentRange'] = true
+                    }
+                }
+
+            } 
+            if (this.previousRange.length >= 1) {
+                const d1 = new Date(this.previousRange[0])
+                let d2 = null
+                if (this.previousRange.length === 2) {
+                    d2 = new Date(this.previousRange[1])
+                } else if (this.previousRange.length === 1 && this.isPreviousRangeSelecting) {
+                    data['inPreviousRange'] = this.isInRange(this.previousRange[0], this.hoverDate, startDay.getTime())
+                }
+                if (d1 === d2 && d1.toLocaleDateString() === startDay.toLocaleDateString()) {
+                    data['isStartDate'] = true
+                    data['isEndDate'] = true
+                    data['isPreviousRange'] = true
+                } else if (d1.toLocaleDateString() === startDay.toLocaleDateString()) {
+                    data['isStartDate'] = true
+                    data['isPreviousRange'] = true
+                } else if (d2) {
+                    if (d2.toLocaleDateString() === startDay.toLocaleDateString()) {
+                        data['isEndDate'] = true
+                        data['isPreviousRange'] = true
+                    } else if (d1.getTime() <= startDay.getTime() && d2.getTime() >= startDay.getTime()) {
+                        data['isPreviousRange'] = true
+                    }
+                }
+            }
+
+            return ({
+                today: startDay.toLocaleDateString() === today.toLocaleDateString(),
+                currentMonth: startDay.getMonth() === month,
+                currentRange: data.isCurrentRange, // Represent current date range
+                previousRange: data.isPreviousRange, // Represent previous date range
+                startDate: data.isStartDate, // Start of any specific date range
+                endDate: data.isEndDate, // End of any specific range
+                // inCurrentRange: data.inCurrentRange, // To Show Date in hover state
+                // inPreviousRange: data.inPreviousRange,
+                isHidden: startDay.getMonth() !== month,
+                isDisabled: startDay > today
+            })
+        },
+        log () {
+            
+            console.log('currentRange', this.currentRange);
+            console.log('previousRange', this.previousRange);
+            console.log('isCurrentRangeSelecting', this.isCurrentRangeSelecting);
+            console.log('isPreviousRangeSelecting', this.isPreviousRangeSelecting);
+            console.log('monthShift', this.monthShift);
+            console.log('hoverDate', this.hoverDate);
+            console.log('isCurrentRangeSelectedPreviously', this.isCurrentRangeSelectedPreviously);
+            
         }
     }
 }
@@ -180,17 +392,6 @@ export default {
                     cursor: pointer;
                 }
 
-                th:hover {
-                    .previous {
-                        background: #ebedf2;
-                        border-color: transparent;
-                    }
-                    .next {
-                        background: #ebedf2;
-                        border-color: transparent;
-                    }
-                }
-
                 td {
                     color: #999;
                 }
@@ -208,13 +409,25 @@ export default {
 
                 .header {
                     .previous {
-                        font-size: 1.3rem;
+                        // font-size: 1.3rem;
                     }
                     .month {
 
                     }
                     .next {
-                        font-size: 1.3rem;
+                        // font-size: 1.3rem;
+                    }
+                    .previous:hover {
+                        background: #ebedf2;
+                        border-color: transparent;
+                    }
+                    .month:hover {
+                        background: #ebedf2;
+                        border-color: transparent;
+                    }
+                    .next:hover {
+                        background: #ebedf2;
+                        border-color: transparent;
                     }
                 }
 
@@ -282,8 +495,25 @@ export default {
                 //     background: #673ab7;
                 // }
 
-                .inRange {
-                    background: #ebedf2;
+                
+                .inCurrentRange {
+                    background: #5867ddcf;
+                    color: #fff;
+                    border-radius: 0;
+                }
+                .inPreviousRange {
+                    background: #cf7b01cf;
+                    color: #fff;
+                    border-radius: 0;
+                }  
+
+                .isHidden {
+                    // visibility: hidden;
+                }
+
+                .isDisabled {
+                    cursor: not-allowed;
+                    color: #999;
                 }
             }
         }

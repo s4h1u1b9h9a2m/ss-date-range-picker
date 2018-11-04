@@ -1,8 +1,25 @@
 <template>
-  <div class="s-container">
-    <s-header @toggle="toggle()"/>
-    <s-drop-down v-show="isDropDownVisible"/>
-  </div>
+  <!-- <el-dropdown 
+    trigger="click" 
+    placement="bottom" 
+    class="s-container"
+    :hide-on-click="false"
+  >
+    <s-header/>
+    <el-dropdown-menu slot="dropdown">
+      <s-drop-down/>
+    </el-dropdown-menu>
+  </el-dropdown> -->
+  <el-popover
+    placement="bottom"
+    class="s-container"
+    trigger="click"
+    transition="el-zoom-in-top"
+  >
+    <s-drop-down/>
+    <!-- <el-button slot="reference">Delete</el-button> -->
+    <s-header slot="reference"/>
+  </el-popover>
 </template>
 
 <script>
@@ -14,14 +31,9 @@ export default {
     SHeader,
     SDropDown
   },
-  data () {
-    return {
-      isDropDownVisible: false
-    }
-  },
   methods: {
-    toggle () {
-      this.isDropDownVisible = !this.isDropDownVisible
+    clicked () {
+      console.log("Clicked");
     }
   }
 };
