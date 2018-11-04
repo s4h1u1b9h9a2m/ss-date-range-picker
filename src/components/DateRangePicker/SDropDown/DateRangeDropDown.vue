@@ -21,7 +21,7 @@
 export default {
     data () {
         return {
-            dateRange: null,
+            dateRange: 0,
             dateRangeOptions: [
                 {
                 value: 0,

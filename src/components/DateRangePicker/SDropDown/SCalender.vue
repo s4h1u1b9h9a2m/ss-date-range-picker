@@ -48,20 +48,38 @@
     </div>
 </template>
 <script>
+import { getUTCDate } from '../../utils'
 export default {
+    props: {
+        pCurrentRange: [], 
+        pPreviousRange: [], 
+        isCompareEnabled: false
+    },
     data () {
         return {
             weekNameInShort: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
-            // monthNameInShort: ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
             calenders: 2,
             visibleDate: Date.now(),
-            currentRange: [1539734400000, 1540339200000],
-            previousRange: [1538870400000, 1539302400000],
+            currentRange: [],
+            previousRange: [],
             isCurrentRangeSelecting: false,
             isPreviousRangeSelecting: false,
             monthShift : 0,
             hoverDate: null,
             isCurrentRangeSelectedPreviously: false
+        }
+    },
+    watch: {
+        pCurrentRange (val) {
+            this.currentRange = val
+        },
+        pPreviousRange (val) {
+            this.previousRange = val
+        },
+        isCompareEnabled (val) {
+            if (!val) {
+                this.previousRange = []
+            }
         }
     },
     computed: {
@@ -187,29 +205,36 @@ export default {
             this.monthShift += 1
         },
         selectDate(date) {
-            let selectedDate = this.getUTCDate(date)
+            let selectedDate = getUTCDate(date)
             this.manageSelection()
             if (this.isOutofRange(selectedDate))
                 return
-            // this.log()
             if (this.isCurrentRangeSelecting) {
                 if (!this.currentRange || this.currentRange.length >= 2) {
                     this.currentRange = []
+                    this.$emit('currentRangeSelecting', 2)
                 }
                 this.currentRange.push(selectedDate)
                 if (this.currentRange.length === 2) {
                     this.hoverDate = null
                     this.isCurrentRangeSelecting = false
+                    if (this.isCompareEnabled) {
+                        this.$emit('previousRangeSelecting', 1)
+                    }
                 }
+                this.$emit('currentRange', this.currentRange)
             } else if (this.isPreviousRangeSelecting) {
                 if (!this.previousRange || this.previousRange.length >= 2) {
                     this.previousRange = []
+                    this.$emit('previousRangeSelecting', 2)
                 }
                 this.previousRange.push(selectedDate)
                 if (this.previousRange.length === 2) {
                     this.hoverDate = null
                     this.isPreviousRangeSelecting = false
+                    this.$emit('currentRangeSelecting', 1)
                 }
+                this.$emit('previousRange', this.currentRange)
             }
         },
         isOutofRange (selectedDate) {
@@ -245,8 +270,8 @@ export default {
              * Later if current select mode was chosen before we'll choose previsous selection mode.
              */
             if (!this.isSelecting) {
-                this.isCurrentRangeSelecting = !this.isCurrentRangeSelectedPreviously
-                this.isPreviousRangeSelecting = this.isCurrentRangeSelectedPreviously
+                this.isCurrentRangeSelecting = this.isCompareEnabled ? !this.isCurrentRangeSelectedPreviously: true
+                this.isPreviousRangeSelecting = this.isCompareEnabled && this.isCurrentRangeSelectedPreviously
                 this.isCurrentRangeSelectedPreviously = !this.isCurrentRangeSelectedPreviously
             }
         },
@@ -264,84 +289,79 @@ export default {
             }
         },
         isInRange (start, end, date) {
-            return start < date && date < end
-        },
-        getUTCDate(date) {
-            let selectedDate = new Date(date)
-            selectedDate = selectedDate.getTime() + selectedDate.getTimezoneOffset()
-            return selectedDate
+            return start < date && date <= end
         },
         getClasses (date, month) {
 
-            // :class="{currentMonth: date.isCurrentMonth, 
-            // today: date.isToday, // Represent today
-            // currentRange: date.isCurrentRange, // Represent current date range
-            // previousRange: date.isPreviousRange, // Represent previous date range
-            // startDate: date.isStartDate, // Start of any specific date range
-            // endDate: date.isEndDate, // End of any specific range
-            // inCurrentRange: date.inCurrentRange, // To Show Date in hover state
-            // inPreviousRange: date.inPreviousRange,
-            // isDisabled: date.isDisabled, //To Disable Date Selection
-            // isHidden: date.isHidden
-            // }"
-
-            let today = new Date()
-            let startDay = new Date(date)
+            const today = new Date()
+            const todayUTC = getUTCDate(today)
+            const todayLocalString = today.toLocaleDateString('sv-SE')
+            const startDay = new Date(date)
+            const startDayUTC = getUTCDate(startDay)
+            const startDayLocalString = startDay.toLocaleDateString('sv-SE')
 
             let data = {}
 
-            if (this.currentRange.length >= 1) {
-                const d1 = new Date(this.currentRange[0])
+            let isInCurrentRange = false
+            if (this.currentRange.length >= 1 && startDayUTC >= this.currentRange[0]) {
+                isInCurrentRange = true
+                const d1 = getUTCDate(this.currentRange[0])
                 let d2 = null
                 if (this.currentRange.length === 2) {
-                    d2 = new Date(this.currentRange[1])
-                } else if (this.currentRange.length === 1 && this.isCurrentRangeSelecting) {
-                    data['inCurrentRange'] = this.isInRange(this.currentRange[0], this.hoverDate, startDay.getTime())
-                }
-                if (d1 === d2 && d1.toLocaleDateString() === startDay.toLocaleDateString()) {
+                    d2 = getUTCDate(this.currentRange[1])
+                } 
+                // else if (this.currentRange.length === 1 && this.isCurrentRangeSelecting) {
+                //     data['inCurrentRange'] = this.isInRange(this.currentRange[0], this.hoverDate, startDayUTC)
+                // }
+                const isd1Equal = d1 === startDayUTC
+                if (d1 === d2 && isd1Equal) {
                     data['isStartDate'] = true
                     data['isEndDate'] = true
                     data['isCurrentRange'] = true
-                } else if (d1.toLocaleDateString() === startDay.toLocaleDateString()) {
+                } else if (isd1Equal) {
                     data['isStartDate'] = true
                     data['isCurrentRange'] = true
                 } else if (d2) {
-                    if (d2.toLocaleDateString() === startDay.toLocaleDateString()) {
+                    const isd2Equal = d2 === startDayUTC
+                    if (isd2Equal) {
                         data['isEndDate'] = true
                         data['isCurrentRange'] = true
-                    } else if (d1.getTime() <= startDay.getTime() && d2.getTime() >= startDay.getTime()) {
+                    } else if (d1 <= startDayUTC && d2 >= startDayUTC) {
                         data['isCurrentRange'] = true
                     }
                 }
-
             } 
-            if (this.previousRange.length >= 1) {
-                const d1 = new Date(this.previousRange[0])
+
+            if (this.previousRange.length >= 1  && startDayUTC >= this.previousRange[0] && !isInCurrentRange) {
+                const d1 = getUTCDate(this.previousRange[0])
                 let d2 = null
                 if (this.previousRange.length === 2) {
-                    d2 = new Date(this.previousRange[1])
-                } else if (this.previousRange.length === 1 && this.isPreviousRangeSelecting) {
-                    data['inPreviousRange'] = this.isInRange(this.previousRange[0], this.hoverDate, startDay.getTime())
-                }
-                if (d1 === d2 && d1.toLocaleDateString() === startDay.toLocaleDateString()) {
+                    d2 = getUTCDate(this.previousRange[1])
+                } 
+                // else if (this.previousRange.length === 1 && this.isPreviousRangeSelecting) {
+                //     data['inPreviousRange'] = this.isInRange(this.previousRange[0], this.hoverDate, startDayUTC)
+                // }
+                const isd1Equal = d1 === startDayUTC
+                if (d1 === d2 && isd1Equal) {
                     data['isStartDate'] = true
                     data['isEndDate'] = true
                     data['isPreviousRange'] = true
-                } else if (d1.toLocaleDateString() === startDay.toLocaleDateString()) {
+                } else if (isd1Equal) {
                     data['isStartDate'] = true
                     data['isPreviousRange'] = true
                 } else if (d2) {
-                    if (d2.toLocaleDateString() === startDay.toLocaleDateString()) {
+                    const isd2Equal = d2 === startDayUTC
+                    if (isd2Equal) {
                         data['isEndDate'] = true
                         data['isPreviousRange'] = true
-                    } else if (d1.getTime() <= startDay.getTime() && d2.getTime() >= startDay.getTime()) {
+                    } else if (d1 <= startDayUTC && d2 >= startDayUTC) {
                         data['isPreviousRange'] = true
                     }
                 }
             }
 
             return ({
-                today: startDay.toLocaleDateString() === today.toLocaleDateString(),
+                today: startDayLocalString === todayLocalString,
                 currentMonth: startDay.getMonth() === month,
                 currentRange: data.isCurrentRange, // Represent current date range
                 previousRange: data.isPreviousRange, // Represent previous date range
@@ -350,7 +370,7 @@ export default {
                 // inCurrentRange: data.inCurrentRange, // To Show Date in hover state
                 // inPreviousRange: data.inPreviousRange,
                 isHidden: startDay.getMonth() !== month,
-                isDisabled: startDay > today
+                isDisabled: startDayUTC > todayUTC
             })
         },
         log () {
@@ -509,6 +529,8 @@ export default {
 
                 .isHidden {
                     // visibility: hidden;
+                    background: white;
+                    color: #999;
                 }
 
                 .isDisabled {

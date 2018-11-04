@@ -7,12 +7,12 @@
             Compare To : 
         </span>
         <el-select 
-            v-model="dateRange" 
-            placeholder="Select"
+            v-model="compare" 
             size="mini"
+            :disabled="!checked"
         >
             <el-option
-            v-for="item in dateRangeOptions"
+            v-for="item in compareOptions"
             :key="item.value"
             :label="item.label"
             :value="item.value">
@@ -24,32 +24,28 @@
 export default {
     data () {
         return {
-            checked: true,
-            dateRange: null,
-            dateRangeOptions: [
+            checked: false,
+            compare: 1,
+            compareOptions: [
                 {
-                value: 0,
-                label: 'Custom',
+                    value: 0,
+                    label: 'Custom',
                 },{
-                value: 1,
-                label: 'Today',
+                    value: 1,
+                    label: 'Previous Period',
                 },{
-                value: 2,
-                label: 'Yesterday',
-                },{
-                value: 3,
-                label: 'Last Week',
-                },{
-                value: 4,
-                label: 'Last Month',
-                },{
-                value: 5,
-                label: 'Last 7 Days',
-                },{
-                value: 6,
-                label: 'Last 30 Days',
+                    value: 2,
+                    label: 'Previous Year',
                 }
             ],
+        }
+    },
+    watch: {
+        checked (val) {
+            this.$emit("compareCheck", val)
+        },
+        compare (val) {
+            this.$emit("compareSelected", val)
         }
     }
 }

@@ -32,9 +32,6 @@ export default {
     SDropDown
   },
   methods: {
-    clicked () {
-      console.log("Clicked");
-    }
   }
 };
 </script>
