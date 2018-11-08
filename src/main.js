@@ -7,11 +7,16 @@ import Vue from "vue";
 import { Dropdown, DropdownMenu, Select, Option, Button, Checkbox, Input, Popover } from 'element-ui';
 
 import App from "./App";
+
+// import SDateRangePicker from './components/index.js'
+
+// Vue.use(SDateRangePicker)
+
 import { library } from "@fortawesome/fontawesome-svg-core";
-import { faAngleDown, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
-library.add(faAngleDown);
+library.add(faChevronDown);
 library.add(faChevronLeft);
 library.add(faChevronRight);
 
